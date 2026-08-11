@@ -12,21 +12,43 @@
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://files.manuscdn.com/user_upload_by_module/session_file/310519663346352634/LHZPvPeaRQSQzpZn.PNG">
 
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-W6P9L3Z');</script>
-    <!-- End Google Tag Manager -->
+    <!-- ===== Suivi analytique — IDENTIFIANTS À RENSEIGNER ===== -->
+    <!-- Les valeurs precedemment inscrites ici (GTM-W6P9L3Z / G-V2Y6E8N9B1) etaient
+         fictives : Google ne renvoie aucune configuration pour ces identifiants, donc
+         le site n'a jamais collecte la moindre donnee.
 
-    <!-- Google Analytics GA4 -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-V2Y6E8N9B1"></script>
+         Ou trouver les vrais identifiants :
+           ga4 -> Google Analytics, Admin > Flux de donnees > votre site (format G-XXXXXXXXXX)
+           gtm -> Google Tag Manager, en haut du conteneur   (format GTM-XXXXXXX)
+
+         Laisser une chaine vide desactive proprement la balise correspondante : aucune
+         requete inutile n'est emise, et les evenements restent empiles dans dataLayer
+         pour remonter des qu'un identifiant valide est pose. -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-V2Y6E8N9B1');
+
+      window.TRACKING = {
+        ga4: '',
+        gtm: ''
+      };
+
+      if (TRACKING.ga4) {
+        var gaScript = document.createElement('script');
+        gaScript.async = true;
+        gaScript.src = 'https://www.googletagmanager.com/gtag/js?id=' + TRACKING.ga4;
+        document.head.appendChild(gaScript);
+        gtag('js', new Date());
+        gtag('config', TRACKING.ga4);
+      }
+
+      if (TRACKING.gtm) {
+        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+        })(window,document,'script','dataLayer',TRACKING.gtm);
+      }
     </script>
 
     <!-- Google Fonts: typographie premium légère -->
@@ -491,8 +513,10 @@
     </style>
 </head>
 <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W6P9L3Z" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- Google Tag Manager (noscript) — a restaurer avec le vrai identifiant de conteneur,
+         en remplacant GTM-XXXXXXX ci-dessous puis en retirant le commentaire :
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    -->
 
     <!-- ===== Navbar ===== -->
     <nav class="navbar">
@@ -1059,6 +1083,62 @@
         document.querySelectorAll('.mobile-menu a').forEach(link => {
             link.addEventListener('click', () => {
                 document.getElementById('mobileMenu').classList.remove('open');
+            });
+        });
+
+        // Suivi des contacts WhatsApp — c'est l'action commerciale reelle du site :
+        // chaque clic sur un lien wa.me est le seul signal d'intention exploitable.
+        // L'evenement porte le nom 'generate_lead' recommande par GA4 ; le marquer comme
+        // evenement cle dans Analytics (Admin > Evenements) pour en faire une conversion,
+        // ce qui permet ensuite d'attribuer les contacts aux campagnes publicitaires.
+
+        // Ou le visiteur a clique — distingue une fiche vehicule d'un bouton generique.
+        const whatsappPlacement = (link) => {
+            if (link.closest('footer')) return 'footer';
+            if (link.classList.contains('vehicle-btn')) return 'fiche_vehicule';
+            if (link.classList.contains('float-wa')) return 'bouton_flottant';
+            if (link.classList.contains('btn-primary')) return 'cta_contact';
+            if (link.classList.contains('btn-outline')) return 'hero';
+            return 'autre';
+        };
+
+        // Le vehicule concerne, extrait du message pre-rempli du lien.
+        const whatsappVehicle = (href) => {
+            let message = '';
+            try {
+                message = new URL(href, location.href).searchParams.get('text') || '';
+            } catch (e) {
+                return 'non_precise';
+            }
+            const match = message.match(/intéressé par\s+(?:l'|les |le |la )?(.+)$/i);
+            return match ? match[1].trim() : 'non_precise';
+        };
+
+        const sendWhatsappLead = (placement, vehicle) => {
+            const details = { method: 'whatsapp', placement: placement, vehicle: vehicle };
+
+            // Tag Manager declenche sur cet evenement nomme.
+            dataLayer.push(Object.assign({ event: 'generate_lead' }, details));
+
+            // Sans Tag Manager, l'evenement part directement vers GA4.
+            // La condition evite de compter deux fois quand les deux sont branches.
+            if (!TRACKING.gtm && TRACKING.ga4) {
+                gtag('event', 'generate_lead', details);
+            }
+        };
+
+        document.querySelectorAll('a[href*="wa.me"]').forEach(link => {
+            link.addEventListener('click', () => {
+                sendWhatsappLead(whatsappPlacement(link), whatsappVehicle(link.href));
+            });
+        });
+
+        // Le formulaire de contact ouvre lui aussi WhatsApp, mais par window.open et non
+        // par un lien : il echappe donc au selecteur ci-dessus. C'est pourtant le contact
+        // le plus qualifie du site, puisqu'il transporte nom, telephone et message.
+        document.querySelectorAll('.contact-form form').forEach(form => {
+            form.addEventListener('submit', () => {
+                sendWhatsappLead('formulaire_contact', 'non_precise');
             });
         });
     </script>
