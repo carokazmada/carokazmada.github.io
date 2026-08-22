@@ -1,0 +1,45 @@
+name: Qualité SEO et conversion du site
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-public-site:
+    name: Vérifier SEO, contact et indexabilité
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+      - name: Vérifier les signaux SEO essentiels
+        run: |
+          grep -q '<link rel="canonical" href="https://carokazmada.com/">' index.html
+          grep -q '<meta name="robots" content="index, follow' index.html
+          grep -q '"@type": "AutomotiveBusiness"' index.html
+          grep -q 'sitemap' robots.txt
+          grep -q '<urlset' sitemap.xml
+      - name: Vérifier le parcours de conversion
+        run: |
+          grep -q 'WHATSAPP_ENABLED: true' index.html
+          grep -q 'id="leadForm"' index.html
+          grep -q 'generate_lead' index.html
+          ! grep -q 'WhatsApp sera disponible prochainement' index.html
+      - name: Vérifier les règles de contenu véhicule
+        run: |
+          grep -q 'Toyota Hilux' index.html
+          grep -q 'data-whatsapp-href' index.html
+          grep -q 'alt=' index.html
