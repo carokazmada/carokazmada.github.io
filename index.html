@@ -1115,6 +1115,8 @@
             return 'https://wa.me/' + CAROKAZ_CONFIG.WHATSAPP_NUMBER + '?text=' + encodeURIComponent(message || 'Bonjour Carokaz Mada');
         }
 
+        const CAROKAZ_IN_APP_BROWSER = /FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
+
         function configureWhatsApp() {
             document.querySelectorAll('[data-whatsapp-href]').forEach((link) => {
                 const source = link.getAttribute('data-whatsapp-href') || '';
@@ -1122,8 +1124,14 @@
                     let message = 'Bonjour Carokaz Mada';
                     try { message = new URL(source).searchParams.get('text') || message; } catch (_) {}
                     link.href = buildWhatsAppUrl(message);
-                    link.target = '_blank';
-                    link.rel = 'noopener';
+                    if (CAROKAZ_IN_APP_BROWSER) {
+                        // Facebook/Instagram WebViews handle same-tab navigation more reliably.
+                        link.removeAttribute('target');
+                        link.rel = 'noopener';
+                    } else {
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                    }
                     link.removeAttribute('data-whatsapp-pending');
                 } else {
                     link.href = '#contact';
@@ -1152,7 +1160,8 @@
             const text = 'Bonjour Carokaz Mada,\n\nNom : ' + name + '\nTéléphone : ' + phone + '\nVéhicule recherché : ' + (vehicle || 'Non précisé') + '\n\n' + message;
             if (CAROKAZ_CONFIG.WHATSAPP_ENABLED) {
                 window.carokazEvent('generate_lead', {method: 'whatsapp_form'});
-                window.location.assign(buildWhatsAppUrl(text));
+                // Keep the form flow in the current tab for reliable WebView handoff.
+                window.location.href = buildWhatsAppUrl(text);
                 return;
             }
             window.carokazEvent('lead_intent', {method: 'whatsapp_pending'});
