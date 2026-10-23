@@ -71,3 +71,40 @@ for href in parser.links:
 if errors:
     raise SystemExit('\n'.join(errors))
 print(f'PASS: title, one h1, SEO/social metadata, {len(parser.images_without_alt)} image alt gaps, no inline handlers, and safe external links')
+
+
+# --- Controles SEO structurels (ajoutes : canonical, JSON-LD, sitemap) ---
+import json
+import re
+import xml.etree.ElementTree as ET
+
+seo_errors = []
+
+canonical = re.search(r'<link[^>]+rel="canonical"[^>]+href="([^"]+)"', html)
+if not canonical:
+    seo_errors.append('missing canonical link')
+elif not canonical.group(1).startswith('https://'):
+    seo_errors.append(f'canonical is not HTTPS: {canonical.group(1)}')
+
+ld_blocks = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+if not ld_blocks:
+    seo_errors.append('missing JSON-LD structured data')
+for block in ld_blocks:
+    try:
+        data = json.loads(block)
+    except json.JSONDecodeError as exc:
+        seo_errors.append(f'invalid JSON-LD: {exc}')
+        continue
+    if isinstance(data, dict) and not data.get('@type'):
+        seo_errors.append('JSON-LD without @type')
+
+sitemap = Path('sitemap.xml')
+if sitemap.exists():
+    try:
+        ET.fromstring(sitemap.read_text(encoding='utf-8'))
+    except ET.ParseError as exc:
+        seo_errors.append(f'invalid sitemap.xml: {exc}')
+
+if seo_errors:
+    raise SystemExit('\n'.join(seo_errors))
+print('PASS: canonical, JSON-LD and sitemap are valid')
